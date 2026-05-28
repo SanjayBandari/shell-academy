@@ -1,0 +1,696 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<meta name="description" content="Interactive shell scripting academy — bash, Azure CLI and Linux automation from scratch to expert level"/>
+<title>Shell Scripting Academy</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#07090f;color:#e2e8f0;font-family:system-ui,-apple-system,sans-serif;min-height:100vh;padding:1rem 1rem 3rem}
+#app{max-width:900px;margin:0 auto}
+button{cursor:pointer;font-family:inherit}
+input,textarea{font-family:inherit;outline:none;color:#e2e8f0}
+::-webkit-scrollbar{width:4px}
+::-webkit-scrollbar-thumb{background:#192236;border-radius:99px}
+@keyframes pulse{0%,80%,100%{opacity:.15}40%{opacity:.9}}
+.dot{width:7px;height:7px;border-radius:50%;background:#3d5a7a;display:inline-block;animation:pulse 1.2s infinite;margin:0 2px}
+.dot:nth-child(2){animation-delay:.2s}
+.dot:nth-child(3){animation-delay:.4s}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+/* ═══════════════════════════════════════════════════════════
+   CONSTANTS
+═══════════════════════════════════════════════════════════ */
+var BG='#07090f',PANEL='#0d1017',P2='#111520',BORDER='#192236',
+    GRN='#22c55e',TEXT='#e2e8f0',DIM='#3d5a7a',TIP='#4a6080',
+    MONO="'Cascadia Code','Fira Code','SF Mono',monospace";
+
+var LV={
+  beginner:    {col:'#22c55e',bg:'rgba(34,197,94,.1)',   bdr:'rgba(34,197,94,.25)'},
+  intermediate:{col:'#f59e0b',bg:'rgba(245,158,11,.1)',  bdr:'rgba(245,158,11,.25)'},
+  advanced:    {col:'#a78bfa',bg:'rgba(167,139,250,.1)', bdr:'rgba(167,139,250,.25)'},
+};
+
+/* ═══════════════════════════════════════════════════════════
+   LESSON DATA
+═══════════════════════════════════════════════════════════ */
+var LESSONS=[
+ {id:0,icon:'🐚',title:'What is a Shell?',level:'beginner',xp:20,
+  desc:'A shell is your command-line gateway to the OS. Bash (Bourne Again Shell) is the most widely used. Every DevOps engineer and developer uses it daily.',
+  ex:[
+   {l:'Print text to screen',     c:'echo "Hello, World!"',      n:'echo prints whatever you give it'},
+   {l:'Show current directory',   c:'pwd',                       n:'pwd = Print Working Directory'},
+   {l:'List files',               c:'ls',                        n:'ls shows all files and folders'},
+   {l:'Who is logged in',         c:'whoami',                    n:'prints your current username'},
+   {l:'Check bash version',       c:'bash --version',            n:'useful for compatibility checks'},
+  ],
+  ch:{q:'What single command shows which user you are logged in as?',a:['whoami'],h:"It literally asks 'who am I' — one word."}},
+
+ {id:1,icon:'📁',title:'Files & Directories',level:'beginner',xp:25,
+  desc:'Linux organizes everything in a tree of files and directories. Navigate with cd, create with mkdir/touch, view with cat/ls.',
+  ex:[
+   {l:'View file contents',       c:'cat data.txt',              n:'cat reads the entire file to screen'},
+   {l:'View first 3 lines',       c:'head data.txt',             n:'head shows the beginning of a file'},
+   {l:'Create a directory',       c:'mkdir my_project',          n:'mkdir = make directory'},
+   {l:'Create an empty file',     c:'touch script.sh',           n:'touch creates an empty file'},
+   {l:'Change directory',         c:'cd my_project',             n:'cd = change directory, ~ = home'},
+  ],
+  ch:{q:"What command creates a new directory called 'scripts'?",a:['mkdir scripts'],h:'mkdir stands for make directory.'}},
+
+ {id:2,icon:'📝',title:'Your First Script',level:'beginner',xp:30,
+  desc:'A shell script is a .sh file with commands. Line 1 must be #!/bin/bash (the shebang). You must chmod +x to make it executable before running.',
+  ex:[
+   {l:'View the sample script',   c:'cat hello.sh',              n:'every script must start with #!/bin/bash'},
+   {l:'Make it executable',       c:'chmod +x hello.sh',         n:'+x adds execute permission'},
+   {l:'Run it',                   c:'./hello.sh',                n:'./ means in the current directory'},
+   {l:'Run greet with arg',       c:'./greet.sh Alice',          n:'passing an argument to a script'},
+   {l:'Run deploy script',        c:'./deploy.sh',               n:'a real production-style script'},
+  ],
+  ch:{q:'What command grants execute permission to a script?',a:['chmod +x','chmod +x hello.sh'],h:'chmod changes permissions. +x adds e(x)ecute.'}},
+
+ {id:3,icon:'📦',title:'Variables',level:'beginner',xp:35,
+  desc:'Variables store data. Critical rules: NO spaces around =. Use $ to read. Double quotes expand variables. Single quotes are completely literal.',
+  ex:[
+   {l:'Set a variable',           c:'name="Alice"',              n:'NEVER put spaces around the = sign!'},
+   {l:'Read it with $',           c:'echo $name',                n:'$ prefix reads the variable value'},
+   {l:'Embed in string',          c:'echo "Hello, $name!"',      n:'double quotes allow expansion'},
+   {l:'Single quotes = literal',  c:"echo '$name'",              n:'single quotes: NO expansion at all'},
+   {l:'Arithmetic with $(( ))',   c:'x=10; echo $((x * 3))',     n:'$(( )) does integer math'},
+  ],
+  ch:{q:'What is wrong with this?   greeting = "Hello"',a:['spaces around =','spaces','no spaces'],h:'Bash has zero tolerance for spaces around = during assignment.'}},
+
+ {id:4,icon:'🔀',title:'Conditionals',level:'beginner',xp:40,
+  desc:'if/elif/else lets scripts make decisions. Always use [[ ]] in bash. Numbers: -eq -ne -lt -gt -le -ge. Strings: == !=. Files: -f -d -e.',
+  ex:[
+   {l:'Greater than test',        c:"[[ 10 -gt 5 ]] && echo 'yes!' || echo 'no'", n:'-gt = greater than'},
+   {l:'Equal test',               c:"[[ 7 -eq 7 ]] && echo 'equal!'",             n:'-eq = equal to'},
+   {l:'String comparison',        c:'[[ "bash" == "bash" ]] && echo "match!"',    n:'== compares strings'},
+   {l:'Check file exists',        c:'[[ -f "data.txt" ]] && echo "found!" || echo "missing"', n:'-f = is a regular file'},
+   {l:'Greater or equal',         c:"[[ 85 -ge 80 ]] && echo 'Grade B!'",         n:'-ge = greater than or equal'},
+  ],
+  ch:{q:'Which operator tests if a number is >= another?',a:['-ge'],h:'ge = greater than or equal. All bash numeric ops use two-letter codes.'}},
+
+ {id:5,icon:'🔁',title:'Loops',level:'beginner',xp:40,
+  desc:'Loops automate repetition. for iterates lists or ranges. while loops while a condition is true. break exits early. continue skips to next iteration.',
+  ex:[
+   {l:'Loop over a list',         c:'for fruit in apple banana cherry; do echo $fruit; done', n:'iterates each word in order'},
+   {l:'Number range {1..5}',      c:'for i in {1..5}; do echo "Step $i"; done',              n:'{start..end} generates the sequence'},
+   {l:'Loop over files',          c:'for f in *.sh; do echo $f; done',                       n:'*.sh = glob pattern for .sh files'},
+   {l:'C-style loop',             c:'for ((i=0; i<3; i++)); do echo $i; done',               n:'like C/Java: init; condition; increment'},
+  ],
+  ch:{q:'Write the start of a for loop counting 1 to 10 using range syntax.',a:['for i in {1..10}','for i in {1..10}; do'],h:'Bash range: {start..end} — use after for VARIABLE in.'}},
+
+ {id:6,icon:'🔧',title:'Functions',level:'intermediate',xp:45,
+  desc:'Functions are reusable blocks. Arguments: $1 $2 $3. Count: $#. All args: $@. Use local for scoped variables. Return values by echoing and capturing with $().',
+  ex:[
+   {l:'Simple function',          c:'greet() { echo "Hello, $1!"; }; greet "World"',                   n:'$1 = first argument passed'},
+   {l:'Math + capture result',    c:'add() { echo $(($1+$2)); }; result=$(add 15 27); echo $result',   n:'$() captures echoed output'},
+   {l:'Count all arguments',      c:'info() { echo "$# args: $@"; }; info a b c d',                    n:'$# = count, $@ = all args'},
+   {l:'Local variable',           c:'double() { local n=$(($1*2)); echo $n; }; double 7',              n:'local = scoped inside function only'},
+  ],
+  ch:{q:'What keyword prevents a variable from leaking outside a function?',a:['local'],h:'One keyword — placed before the variable name inside the function body.'}},
+
+ {id:7,icon:'📋',title:'Arrays',level:'intermediate',xp:45,
+  desc:'Arrays store multiple values under one name. Index from 0. ${arr[0]} = first element. ${arr[@]} = all elements. ${#arr[@]} = length.',
+  ex:[
+   {l:'Create an array',          c:'servers=("web01" "web02" "db01"); echo created',         n:'values in () space-separated'},
+   {l:'Get first element',        c:'servers=("web01" "web02" "db01"); echo ${servers[0]}',   n:'indexing starts at 0'},
+   {l:'Get ALL elements',         c:'servers=("web01" "web02" "db01"); echo ${servers[@]}',   n:'@ = every element'},
+   {l:'Array length',             c:'servers=("web01" "web02" "db01"); echo ${#servers[@]}',  n:'# gives the count'},
+  ],
+  ch:{q:"How do you print ALL elements of an array named 'logs'?",a:['${logs[@]}','echo ${logs[@]}'],h:'Use @ inside ${} to mean all elements.'}},
+
+ {id:8,icon:'⚙️',title:'Pipes & Redirection',level:'intermediate',xp:50,
+  desc:'Every process has stdin(0) stdout(1) stderr(2). Redirect with > >> 2> &>. Pipe with | — stdout of one command becomes stdin of the next.',
+  ex:[
+   {l:'Search a file',            c:'grep Alice data.txt',        n:'grep filters lines matching a pattern'},
+   {l:'Case-insensitive search',  c:'grep -i alice data.txt',     n:'-i = ignore case'},
+   {l:'Sort a file',              c:'sort numbers.txt',           n:'sort orders lines numerically or alpha'},
+   {l:'Count lines/words/chars',  c:'wc data.txt',                n:'wc outputs: lines words chars filename'},
+   {l:'Pipe to filter',           c:'cat data.txt | grep Bob',    n:'cat output pipes into grep input'},
+  ],
+  ch:{q:'What operator redirects ONLY stderr to a file called errors.log?',a:['2>','2> errors.log'],h:'stderr = file descriptor 2. Combine number 2 with the > operator.'}},
+
+ {id:9,icon:'🛡️',title:'Error Handling',level:'intermediate',xp:50,
+  desc:'Every command returns an exit code: 0 = success. $? holds the last exit code. set -euo pipefail makes your script fail fast instead of silently producing wrong results.',
+  ex:[
+   {l:'Check exit code',          c:'echo "hello"; echo "Exit: $?"',                        n:'0 = last command succeeded'},
+   {l:'AND chain',                c:'echo "step1" && echo "step2 ran!"',                    n:'&& runs if left side succeeds'},
+   {l:'OR fallback',              c:"cat missing.txt || echo 'Using default instead'",      n:'|| runs if left side fails'},
+   {l:'The safe script header',   c:'echo "#!/bin/bash"; echo "set -euo pipefail"',         n:'ALWAYS put this at top of every script!'},
+  ],
+  ch:{q:'What exit code means a command completed successfully?',a:['0','exit 0','zero'],h:'Success is always the same number — zero.'}},
+
+ {id:10,icon:'⚡',title:'Process Management',level:'advanced',xp:55,
+  desc:'& runs jobs in background. $$ is this process PID. $! is last background PID. wait waits for all jobs. trap catches signals for guaranteed cleanup.',
+  ex:[
+   {l:"This script's PID",        c:'echo "My PID: $$"',          n:'$$ = PID of current running script'},
+   {l:'See running processes',    c:'ps',                         n:'ps shows active processes'},
+   {l:'Last background PID',      c:'echo "Last bg PID: $!"',     n:'$! = PID of last backgrounded process'},
+   {l:'Trap cleanup pattern',     c:'echo "trap cleanup EXIT  → runs on any exit"', n:'trap = your guaranteed safety net'},
+  ],
+  ch:{q:'What variable holds the PID of the last background process?',a:['$!'],h:"It's a one-character special variable — the exclamation mark."}},
+
+ {id:11,icon:'☁️',title:'Azure CLI + Bash',level:'advanced',xp:65,
+  desc:'Azure CLI + bash = cloud automation at scale. Always use set -euo pipefail. Use --output tsv for raw values. Use --query for JMESPath JSON filtering.',
+  ex:[
+   {l:'Store resource names',     c:'RG="myapp-prod-rg"; LOC="eastus"; echo "RG: $RG"',              n:'keep all names in variables'},
+   {l:'Login check pattern',      c:'echo "az account show || { echo Not logged in; exit 1; }"',      n:'always verify auth first'},
+   {l:'Capture az output',        c:'echo "URL=$(az webapp show --name myapp -g $RG --query defaultHostName -o tsv)"', n:'--output tsv strips JSON'},
+   {l:'Try Azure CLI',            c:'az',                         n:'install: https://aka.ms/InstallAzureCLIDeb'},
+  ],
+  ch:{q:'Which --output format returns a clean raw value with no JSON — ideal for shell variables?',a:['tsv','--output tsv','-o tsv'],h:'TSV = Tab Separated Values — strips all JSON formatting.'}},
+
+ {id:12,icon:'🏗️',title:'Production Deploy Script',level:'advanced',xp:80,
+  desc:'Everything combined: set -euo pipefail, functions, trap, timestamped logging, argument validation, Azure CLI. This is how real production scripts look.',
+  ex:[
+   {l:'Safe header (mandatory)',   c:'echo "#!/bin/bash"; echo "set -euo pipefail"',               n:'NEVER skip this in production'},
+   {l:'Timestamped logger',       c:'log() { echo "[$(date +%T)] $*"; }; log "Deploy started"',   n:'all output should be timestamped'},
+   {l:'Validate argument',        c:'[[ "staging" =~ ^(staging|production)$ ]] && echo "Valid!" || echo "INVALID!"', n:'validate BEFORE doing anything'},
+   {l:'Run the deploy script',    c:'./deploy.sh',                n:'see it all in action!'},
+  ],
+  ch:{q:"In 'set -euo pipefail', what does the 'e' flag specifically do?",a:['exit on error','exit immediately','exits when command fails','exit on any error'],h:'e = exit. Script halts when any command returns non-zero exit code.'}},
+];
+
+var TOTAL_XP=LESSONS.reduce(function(s,l){return s+l.xp;},0);
+
+/* ═══════════════════════════════════════════════════════════
+   TERMINAL ENGINE
+═══════════════════════════════════════════════════════════ */
+var VFILES={
+  'hello.sh':   '#!/bin/bash\necho "Hello, World!"',
+  'data.txt':   'Alice 30 London\nBob 25 Paris\nCarol 35 Tokyo\nDave 28 Berlin',
+  'numbers.txt':'42\n7\n19\n3\n88\n15',
+  'greet.sh':   '#!/bin/bash\nname=$1\necho "Hello, $name! Welcome to bash."',
+  'deploy.sh':  '#!/bin/bash\nset -euo pipefail\nlog() { echo "[$(date +%T)] $*"; }\nlog "Starting deploy..."\nlog "Done!"',
+};
+
+function expandVars(s,env){
+  return String(s).replace(/\$\{([^}]+)\}|\$([A-Za-z_]\w*)/g,function(_,a,b){
+    var k=a!=null?a:b; return env[k]!=null?String(env[k]):'';
+  });
+}
+
+function evalCond(raw,env){
+  var c=expandVars(raw.trim(),env).trim(), m;
+  m=c.match(/^-f\s+"?([^"]+)"?$/);
+  if(m) return ['hello.sh','data.txt','numbers.txt','greet.sh','deploy.sh'].indexOf(m[1])>=0;
+  m=c.match(/^-z\s+"?([^"]*)"?$/); if(m) return m[1]==='';
+  m=c.match(/^-n\s+"?([^"]*)"?$/); if(m) return m[1]!=='';
+  m=c.match(/^(-?\d+)\s+(-eq|-ne|-lt|-gt|-le|-ge)\s+(-?\d+)$/);
+  if(m){var na=parseInt(m[1]),nb=parseInt(m[3]);
+    return m[2]==='-eq'?na===nb:m[2]==='-ne'?na!==nb:m[2]==='-lt'?na<nb:m[2]==='-gt'?na>nb:m[2]==='-le'?na<=nb:na>=nb;}
+  m=c.match(/^"?([^"]*)"?\s*(==|!=)\s*"?([^"]*)"?$/);
+  if(m) return m[2]==='=='?m[1]===m[3]:m[1]!==m[3];
+  try{m=c.match(/^"?([^"]*)"?\s*=~\s*(.+)$/);if(m) return new RegExp(m[2]).test(m[1]);}catch(e){}
+  return false;
+}
+
+function runCmd(raw,env,cwd,fs){
+  var t=raw.trim();
+  if(!t) return {out:null,ok:true,env:env,cwd:cwd,fs:fs};
+  var m,r,i,items,outs,curEnv,nfs,content,lines,hits;
+
+  m=t.match(/^\[\[(.+?)\]\]\s*&&\s*(.+?)(?:\s*\|\|\s*(.+))?$/);
+  if(m){
+    if(evalCond(m[1],env)) return runCmd(m[2].trim(),env,cwd,fs);
+    if(m[3]) return runCmd(m[3].trim(),env,cwd,fs);
+    return {out:null,ok:false,env:env,cwd:cwd,fs:fs};
+  }
+
+  m=t.match(/^for\s+(\w+)\s+in\s+(.+?);\s*do\s+(.+?);\s*done$/);
+  if(m){
+    items=[];
+    var rng=m[2].trim().match(/^\{(\d+)\.\.(\d+)\}$/);
+    if(rng){for(i=parseInt(rng[1]);i<=parseInt(rng[2]);i++) items.push(String(i));}
+    else items=m[2].trim().split(/\s+/).map(function(x){return x.replace(/["']/g,'');});
+    outs=[];curEnv=env;
+    for(i=0;i<items.length;i++){curEnv=Object.assign({},curEnv);curEnv[m[1]]=items[i];r=runCmd(m[3].trim(),curEnv,cwd,fs);if(r.out!=null)outs.push(r.out);}
+    return {out:outs.length?outs.join('\n'):null,ok:true,env:env,cwd:cwd,fs:fs};
+  }
+
+  if(/^[A-Za-z_]\w*=/.test(t)&&t[0]!=='['){
+    var eq=t.indexOf('='),key=t.slice(0,eq);
+    var val=t.slice(eq+1).replace(/^(["'])(.*)\1$/,'$2');
+    val=expandVars(val,env);
+    var ne=Object.assign({},env);ne[key]=val;
+    return {out:null,ok:true,env:ne,cwd:cwd,fs:fs};
+  }
+
+  var ex2=t.replace(/\$\(([^)]+)\)/g,function(_,inner){r=runCmd(inner.trim(),env,cwd,fs);return r.out||'';});
+  var tok=ex2.match(/(?:[^\s"']+|"[^"]*"|'[^']*')+/g)||[];
+  var prog=tok[0]||'';
+  var args=tok.slice(1).map(function(p){return p.replace(/^(["'])(.*)\1$/,'$2');});
+  var arg0=expandVars(args[0]||'',env);
+
+  switch(prog){
+    case 'echo':{var r2=tok.slice(1).join(' ').replace(/^(["'])(.*)\1$/,'$2');return {out:expandVars(r2,env),ok:true,env:env,cwd:cwd,fs:fs};}
+    case 'pwd':    return {out:cwd,ok:true,env:env,cwd:cwd,fs:fs};
+    case 'whoami': return {out:'student',ok:true,env:env,cwd:cwd,fs:fs};
+    case 'date':   return {out:new Date().toString().slice(0,24),ok:true,env:env,cwd:cwd,fs:fs};
+    case 'clear':  return {out:'__CLEAR__',ok:true,env:env,cwd:cwd,fs:fs};
+    case 'hostname':return{out:'shell-academy',ok:true,env:env,cwd:cwd,fs:fs};
+    case 'bash':   return {out:args[0]==='--version'?'GNU bash, version 5.2.15(1)-release':'Use: bash --version',ok:true,env:env,cwd:cwd,fs:fs};
+    case 'which':  return {out:'/usr/bin/'+arg0,ok:true,env:env,cwd:cwd,fs:fs};
+    case 'ps':     return {out:'  PID TTY       TIME CMD\n 1234 pts/0 00:00:01 bash\n 5678 pts/0 00:00:00 ps',ok:true,env:env,cwd:cwd,fs:fs};
+    case 'sleep':  return {out:'(sleep '+arg0+'s — no wait in simulator)',ok:true,env:env,cwd:cwd,fs:fs};
+    case 'export': return {out:null,ok:true,env:env,cwd:cwd,fs:fs};
+    case 'set':    return {out:'(set: shell options — e.g. set -euo pipefail)',ok:true,env:env,cwd:cwd,fs:fs};
+    case 'tr':     return {out:'(tr: translate chars — try in your real terminal)',ok:true,env:env,cwd:cwd,fs:fs};
+    case 'sed':    return {out:'(sed: stream editor — try in your real terminal)',ok:true,env:env,cwd:cwd,fs:fs};
+    case 'awk':    return {out:'(awk: text processor — try in your real terminal)',ok:true,env:env,cwd:cwd,fs:fs};
+    case 'az':     return {out:'Azure CLI — install: https://aka.ms/InstallAzureCLIDeb\nThen: az login  →  az account show',ok:true,env:env,cwd:cwd,fs:fs};
+    case 'env':case 'printenv':return{out:Object.keys(env).map(function(k){return k+'='+env[k];}).join('\n'),ok:true,env:env,cwd:cwd,fs:fs};
+    case 'find':   return {out:'./hello.sh\n./data.txt\n./numbers.txt\n./greet.sh\n./deploy.sh',ok:true,env:env,cwd:cwd,fs:fs};
+    case 'help':case '?':return{out:
+      'Commands: echo  pwd  ls  cd  mkdir  touch  cat  grep  sort  wc  head  tail  chmod  clear\n'+
+      'Vars:     name=Alice  →  echo $name\n'+
+      'Loops:    for i in {1..5}; do echo $i; done\n'+
+      'Conds:    [[ 5 -gt 3 ]] && echo yes || echo no\n'+
+      'Pipes:    cat data.txt | grep Alice\n'+
+      'Files:    hello.sh  data.txt  numbers.txt  greet.sh  deploy.sh',
+      ok:true,env:env,cwd:cwd,fs:fs};
+    case 'ls':{
+      var base=Object.keys(VFILES),extra=fs[cwd]||[];
+      var all=cwd==='/home/student'?base.concat(extra.filter(function(f){return base.indexOf(f)<0;})):extra;
+      return {out:all.length?all.join('  '):'(empty directory)',ok:true,env:env,cwd:cwd,fs:fs};
+    }
+    case 'cd':{var tgt=arg0||'~';var nc=(tgt==='~'||!tgt)?'/home/student':tgt.startsWith('/')?tgt:cwd+'/'+tgt;return{out:null,ok:true,env:env,cwd:nc,fs:fs};}
+    case 'mkdir':{if(!arg0)return{out:'mkdir: missing operand',ok:false,env:env,cwd:cwd,fs:fs};nfs=Object.assign({},fs);nfs[cwd]=(nfs[cwd]||[]).concat([arg0+'/']);return{out:null,ok:true,env:env,cwd:cwd,fs:nfs};}
+    case 'touch':{if(!arg0)return{out:'touch: missing file operand',ok:false,env:env,cwd:cwd,fs:fs};nfs=Object.assign({},fs);nfs[cwd]=(nfs[cwd]||[]).concat([arg0]);return{out:null,ok:true,env:env,cwd:cwd,fs:nfs};}
+    case 'rm':{nfs=Object.assign({},fs);nfs[cwd]=(nfs[cwd]||[]).filter(function(f){return f!==arg0;});return{out:null,ok:true,env:env,cwd:cwd,fs:nfs};}
+    case 'cat':{if(!arg0)return{out:'cat: missing file operand',ok:false,env:env,cwd:cwd,fs:fs};content=VFILES[arg0];if(content!=null)return{out:content,ok:true,env:env,cwd:cwd,fs:fs};return{out:'cat: '+arg0+': No such file or directory',ok:false,env:env,cwd:cwd,fs:fs};}
+    case 'chmod':return{out:'Permissions updated: -rwxr-xr-x '+(args[args.length-1]||''),ok:true,env:env,cwd:cwd,fs:fs};
+    case 'grep':{
+      var dI=args.indexOf('-i')>=0,dN=args.indexOf('-n')>=0;
+      var fa=args.filter(function(a){return !a.startsWith('-');}),pat=fa[0]||'',gf=fa[1]||'';
+      content=VFILES[gf]||'';
+      if(!content&&gf)return{out:'grep: '+gf+': No such file',ok:false,env:env,cwd:cwd,fs:fs};
+      lines=content.split('\n');hits=[];
+      for(i=0;i<lines.length;i++){var mt=dI?lines[i].toLowerCase().includes(pat.toLowerCase()):lines[i].includes(pat);if(mt)hits.push(dN?(i+1)+':'+lines[i]:lines[i]);}
+      return{out:hits.length?hits.join('\n'):'(no matches)',ok:hits.length>0,env:env,cwd:cwd,fs:fs};
+    }
+    case 'sort':{content=VFILES[arg0]||'';if(!content&&arg0)return{out:'sort: '+arg0+': No such file',ok:false,env:env,cwd:cwd,fs:fs};lines=content.split('\n').filter(Boolean);var num=lines.every(function(l){return !isNaN(Number(l));});return{out:(num?lines.slice().sort(function(a,b){return Number(a)-Number(b);}):lines.slice().sort()).join('\n'),ok:true,env:env,cwd:cwd,fs:fs};}
+    case 'wc':{content=VFILES[arg0]||'';if(!content&&arg0)return{out:'wc: '+arg0+': No such file',ok:false,env:env,cwd:cwd,fs:fs};return{out:'  '+content.split('\n').length+'  '+content.trim().split(/\s+/).length+'  '+content.length+' '+arg0,ok:true,env:env,cwd:cwd,fs:fs};}
+    case 'head':{var hn=args.indexOf('-n')>=0?parseInt(args[args.indexOf('-n')+1]||'3'):3;var hf=args.filter(function(a){return !a.startsWith('-');}).pop()||'';return{out:(VFILES[hf]||'').split('\n').slice(0,hn).join('\n'),ok:true,env:env,cwd:cwd,fs:fs};}
+    case 'tail':{var tf=args.filter(function(a){return !a.startsWith('-');}).pop()||'';return{out:(VFILES[tf]||'').split('\n').slice(-3).join('\n'),ok:true,env:env,cwd:cwd,fs:fs};}
+    case 'uniq':{lines=(VFILES[arg0]||'').split('\n');return{out:lines.filter(function(l,idx){return idx===0||l!==lines[idx-1];}).join('\n'),ok:true,env:env,cwd:cwd,fs:fs};}
+    default:
+      if(prog.startsWith('./')&&prog.endsWith('.sh')){
+        var sn=prog.slice(2);
+        if(sn==='greet.sh')return{out:'Hello, '+(args[0]||'stranger')+'! Welcome to bash.',ok:true,env:env,cwd:cwd,fs:fs};
+        if(sn==='deploy.sh'){var tt=new Date().toLocaleTimeString();return{out:'['+tt+'] Starting deploy...\n['+tt+'] Done!',ok:true,env:env,cwd:cwd,fs:fs};}
+        return{out:'Hello, World!\n[✓ '+prog+' executed — exit code 0]',ok:true,env:env,cwd:cwd,fs:fs};
+      }
+      if(VFILES[prog])return{out:'bash: '+prog+': Permission denied\nHint: chmod +x '+prog+' then ./'+prog,ok:false,env:env,cwd:cwd,fs:fs};
+      return{out:"bash: "+prog+": command not found\nType 'help' for available commands",ok:false,env:env,cwd:cwd,fs:fs};
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   APP STATE
+═══════════════════════════════════════════════════════════ */
+var BOOT=[
+  {k:'hdr',v:'  ╔══════════════════════════════════════════╗'},
+  {k:'hdr',v:'  ║   Shell Scripting Academy  ·  bash v2   ║'},
+  {k:'hdr',v:'  ╚══════════════════════════════════════════╝'},
+  {k:'tip',v:''},
+  {k:'tip',v:"  Type 'help' to see all available commands"},
+  {k:'tip',v:'  Try:  echo "Hello World"'},
+  {k:'tip',v:'  Try:  name=Alice; echo "Hi $name"'},
+  {k:'tip',v:'  Try:  for i in {1..5}; do echo $i; done'},
+  {k:'tip',v:''},
+];
+
+var S={
+  view:'home',lid:0,done:{},xp:0,cfa:{},cff:{},
+  tLines:BOOT.slice(),tIn:'',
+  tEnv:{HOME:'/home/student',USER:'student',SHELL:'/bin/bash'},
+  tCwd:'/home/student',tFs:{},tHist:[],tHIdx:-1,
+  aiKey:'',
+  aiMsgs:[{r:'bot',t:"Hey! I'm your shell scripting tutor.\n\nAsk me anything about bash, Linux, Azure CLI, or automation.\n\n⚠️ To enable AI responses, paste your Anthropic API key in the field above (get one free at console.anthropic.com)."}],
+  aiLoad:false,
+};
+
+var CBUF=[];
+
+/* ═══════════════════════════════════════════════════════════
+   ACTIONS
+═══════════════════════════════════════════════════════════ */
+function exec(raw){
+  var trimmed=(raw||'').trim();
+  if(!trimmed)return;
+  S.tHist.unshift(trimmed);
+  if(S.tHist.length>200)S.tHist.pop();
+  S.tHIdx=-1;
+  var prompt=(S.tCwd==='/home/student'?'~':S.tCwd)+' $ '+trimmed;
+  var isCompound=/\b(for|while|until|if)\b/.test(trimmed)&&/\b(do|then)\b/.test(trimmed);
+  S.tLines.push({k:'cmd',v:prompt});
+  if(isCompound){
+    var r=runCmd(trimmed,S.tEnv,S.tCwd,S.tFs);
+    S.tEnv=r.env;S.tCwd=r.cwd;S.tFs=r.fs;
+    if(r.out==='__CLEAR__')S.tLines=[{k:'tip',v:'(terminal cleared)'}];
+    else if(r.out!=null)S.tLines.push({k:r.ok?'out':'err',v:r.out});
+    render();return;
+  }
+  var stmts=trimmed.split(/;\s*/);
+  var env=S.tEnv,cwd=S.tCwd,fs=S.tFs;
+  for(var si=0;si<stmts.length;si++){
+    var stmt=stmts[si].trim();if(!stmt)continue;
+    if(stmt.includes(' | ')){
+      var parts=stmt.split(/\s*\|\s*/),lastOut=null,lastOk=true;
+      for(var pi=0;pi<parts.length;pi++){var r2=runCmd(parts[pi].trim(),env,cwd,fs);env=r2.env;cwd=r2.cwd;fs=r2.fs;if(r2.out!=null){lastOut=r2.out;lastOk=r2.ok;}}
+      if(lastOut!=null)S.tLines.push({k:lastOk?'out':'err',v:lastOut});
+    }else{
+      var r3=runCmd(stmt,env,cwd,fs);env=r3.env;cwd=r3.cwd;fs=r3.fs;
+      if(r3.out==='__CLEAR__')S.tLines=[{k:'tip',v:'(terminal cleared)'}];
+      else if(r3.out!=null)S.tLines.push({k:r3.ok?'out':'err',v:r3.out});
+    }
+  }
+  S.tEnv=env;S.tCwd=cwd;S.tFs=fs;render();
+}
+
+function tryCmd(idx){S.tIn=CBUF[idx];S.view='terminal';render();setTimeout(function(){var inp=document.getElementById('ti');if(inp){inp.value=S.tIn;inp.focus();inp.selectionStart=inp.selectionEnd=inp.value.length;}},60);}
+function loadCmd(idx){S.tIn=CBUF[idx];var inp=document.getElementById('ti');if(inp){inp.value=S.tIn;inp.focus();}}
+function setView(v){S.view=v;render();}
+function goLesson(id){S.lid=id;S.view='lesson';render();}
+
+function checkC(id){
+  var l=LESSONS[id],val=(S.cfa[id]||'').trim().toLowerCase();
+  var ok=l.ch.a.some(function(a){return val.includes(a.toLowerCase());});
+  var fresh=!S.done[id];
+  if(ok&&fresh){S.done[id]=true;S.xp+=l.xp;}
+  S.cff[id]=ok?(fresh?'new':'repeat'):'wrong';render();
+}
+function hintC(id){S.cff[id]='hint';render();}
+function updateCfa(id,val){S.cfa[id]=val;}
+function updateAiKey(val){S.aiKey=val;}
+
+function resetTerm(){
+  S.tLines=BOOT.slice();S.tEnv={HOME:'/home/student',USER:'student',SHELL:'/bin/bash'};
+  S.tCwd='/home/student';S.tFs={};render();
+}
+
+function setAiQ(q){var inp=document.getElementById('ai-inp');if(inp)inp.value=q;}
+
+function termKey(e){
+  if(e.key==='Enter'){S.tIn=e.target.value;exec(S.tIn);S.tIn='';e.target.value='';}
+  else if(e.key==='ArrowUp'){e.preventDefault();var i=Math.min(S.tHIdx+1,S.tHist.length-1);S.tHIdx=i;e.target.value=S.tIn=S.tHist[i]||'';}
+  else if(e.key==='ArrowDown'){e.preventDefault();var i2=Math.max(S.tHIdx-1,-1);S.tHIdx=i2;e.target.value=S.tIn=i2<0?'':S.tHist[i2]||'';}
+  else if(e.key==='Tab'){e.preventDefault();}
+  else{S.tIn=e.target.value;}
+}
+function execBtn(){var inp=document.getElementById('ti');if(inp){S.tIn=inp.value;exec(S.tIn);S.tIn='';inp.value='';}}
+
+async function sendAI(){
+  var inp=document.getElementById('ai-inp');
+  var q=inp?inp.value.trim():'';
+  if(!q||S.aiLoad)return;
+  if(!S.aiKey){S.aiMsgs.push({r:'bot',t:'⚠️ Please paste your Anthropic API key above.\n\nGet one free at: https://console.anthropic.com'});render();return;}
+  S.aiMsgs.push({r:'user',t:q});
+  S.aiLoad=true;render();
+  try{
+    var res=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','x-api-key':S.aiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+      body:JSON.stringify({
+        model:'claude-sonnet-4-20250514',max_tokens:900,
+        system:'Expert shell scripting tutor. Teach bash, Linux, Azure CLI. Concise. Use `backtick` for code. Conversational, no headers. Student: '+Object.keys(S.done).length+'/'+LESSONS.length+' lessons, '+S.xp+' XP.',
+        messages:S.aiMsgs.map(function(m){return{role:m.r==='bot'?'assistant':'user',content:m.t};})
+      })
+    });
+    var d=await res.json();
+    S.aiMsgs.push({r:'bot',t:d.content?d.content.map(function(b){return b.text||'';}).join(''):'Error — check your API key and try again.'});
+  }catch(e){S.aiMsgs.push({r:'bot',t:'Connection error: '+e.message});}
+  S.aiLoad=false;render();
+}
+
+/* ═══════════════════════════════════════════════════════════
+   RENDER
+═══════════════════════════════════════════════════════════ */
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+
+function btn(label,onclick,opts){
+  opts=opts||{};
+  var style='cursor:pointer;font-family:inherit;border:1px solid '+(opts.border||BORDER)+';border-radius:'+(opts.radius||'8px')+';background:'+(opts.bg||PANEL)+';color:'+(opts.col||DIM)+';padding:'+(opts.pad||'8px 16px')+';font-size:'+(opts.fs||'13px')+(opts.fw?';font-weight:'+opts.fw:'')+';'+( opts.extra||'');
+  return '<button onclick="'+onclick+'" style="'+style+'">'+(opts.icon?opts.icon+' ':'')+label+'</button>';
+}
+
+function trafficLights(){
+  return '<span style="width:11px;height:11px;border-radius:50%;background:#ff5f56;display:inline-block;margin-right:4px"></span>'+
+    '<span style="width:11px;height:11px;border-radius:50%;background:#ffbd2e;display:inline-block;margin-right:4px"></span>'+
+    '<span style="width:11px;height:11px;border-radius:50%;background:#27c93f;display:inline-block"></span>';
+}
+
+function render(){
+  CBUF=[];
+  var doneCnt=Object.keys(S.done).length;
+  var pct=Math.min(100,Math.round((S.xp/TOTAL_XP)*100));
+  var rank=S.xp===0?'Newbie':S.xp<120?'Beginner':S.xp<280?'Scripter':S.xp<480?'Ninja':S.xp<TOTAL_XP?'Expert':'Master 🏆';
+
+  var header='<div style="display:flex;align-items:center;gap:14px;margin-bottom:14px;background:'+PANEL+';border:1px solid '+BORDER+';border-radius:14px;padding:13px 18px">'+
+    '<div style="background:'+GRN+';color:#fff;font-family:'+MONO+';font-weight:700;font-size:18px;width:42px;height:42px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0">$_</div>'+
+    '<div style="flex:1">'+
+      '<div style="font-size:15px;font-weight:700">Shell Scripting Academy</div>'+
+      '<div style="font-size:11px;color:'+DIM+'">'+doneCnt+'/'+LESSONS.length+' lessons · '+S.xp+' XP · '+rank+'</div>'+
+      '<div style="background:'+BORDER+';height:4px;border-radius:99px;overflow:hidden;margin-top:6px"><div style="background:'+GRN+';height:100%;width:'+pct+'%;border-radius:99px;transition:width .5s"></div></div>'+
+    '</div>'+
+    '<div style="font-family:'+MONO+';font-size:13px;color:'+GRN+';font-weight:700">'+pct+'%</div>'+
+  '</div>';
+
+  var navBtns=['home','📖 Lessons','lesson','💻 Terminal','terminal','🤖 AI Tutor','tutor'];
+  var nav='<div style="display:flex;gap:6px;margin-bottom:20px;flex-wrap:wrap">'+
+    ['🏠 Home:home','📖 Lessons:lesson','💻 Terminal:terminal','🤖 AI Tutor:tutor'].map(function(s3){
+      var p=s3.split(':'),label=p[0],id=p[1],active=S.view===id;
+      return '<button onclick="setView(\''+id+'\')" style="background:'+(active?GRN:PANEL)+';color:'+(active?'#fff':DIM)+';border:1px solid '+(active?GRN:BORDER)+';border-radius:9px;padding:8px 18px;font-size:13px;font-weight:'+(active?'700':'400')+';cursor:pointer">'+label+'</button>';
+    }).join('')+
+  '</div>';
+
+  var body='';
+  if(S.view==='home')body=renderHome(doneCnt,pct,rank);
+  else if(S.view==='lesson')body=renderLesson();
+  else if(S.view==='terminal')body=renderTerminal();
+  else if(S.view==='tutor')body=renderTutor();
+
+  document.getElementById('app').innerHTML='<div>'+header+nav+body+'</div>';
+
+  // restore inputs
+  LESSONS.forEach(function(l){var ta=document.getElementById('cfa'+l.id);if(ta&&S.cfa[l.id])ta.value=S.cfa[l.id];});
+  var ti=document.getElementById('ti');if(ti)ti.value=S.tIn;
+  var ki=document.getElementById('api-key-inp');if(ki)ki.value=S.aiKey;
+  var tOut=document.getElementById('tOut');if(tOut)tOut.scrollTop=tOut.scrollHeight;
+  var aiDiv=document.getElementById('aiMsgs');if(aiDiv)aiDiv.scrollTop=aiDiv.scrollHeight;
+  if(S.view==='terminal'&&ti){ti.focus();ti.selectionStart=ti.selectionEnd=ti.value.length;}
+}
+
+function renderHome(doneCnt,pct,rank){
+  var rankC=S.xp===0?DIM:S.xp<280?GRN:S.xp<480?'#f59e0b':'#a78bfa';
+  var stats='<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:28px">';
+  [[doneCnt,LESSONS.length,'Lessons Done',GRN],[S.xp,TOTAL_XP,'XP Earned','#f59e0b'],[pct+'%','','Complete','#a78bfa'],[rank,'','Rank',rankC]].forEach(function(s3){
+    stats+='<div style="background:'+PANEL+';border:1px solid '+BORDER+';border-radius:12px;padding:16px 14px;text-align:center">'+
+      '<div style="font-size:22px;font-weight:700;color:'+s3[3]+';font-family:'+MONO+'">'+s3[0]+'</div>'+
+      (s3[1]?'<div style="font-size:11px;color:'+DIM+'">of '+s3[1]+'</div>':'')+
+      '<div style="font-size:11px;color:'+TIP+';margin-top:2px">'+s3[2]+'</div></div>';
+  });
+  stats+='</div>';
+
+  var grid='';
+  ['beginner','intermediate','advanced'].forEach(function(level){
+    var lv=LV[level];
+    var lvLessons=LESSONS.filter(function(l){return l.level===level;});
+    var lvDone=lvLessons.filter(function(l){return S.done[l.id];}).length;
+    grid+='<div style="margin-bottom:28px">'+
+      '<div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">'+
+        '<div style="font-size:11px;font-weight:700;letter-spacing:.1em;color:'+lv.col+';text-transform:uppercase">'+level+'</div>'+
+        '<div style="flex:1;height:1px;background:'+BORDER+'"></div>'+
+        '<div style="font-size:11px;color:'+DIM+'">'+lvDone+'/'+lvLessons.length+' done</div>'+
+      '</div><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(185px,1fr));gap:10px">';
+    lvLessons.forEach(function(l){
+      var d=S.done[l.id];
+      grid+='<div onclick="goLesson('+l.id+')" style="background:'+PANEL+';border:1px solid '+(d?lv.col+'66':BORDER)+';border-radius:12px;padding:14px;cursor:pointer;position:relative" '+
+        'onmouseover="this.style.borderColor=\''+lv.col+'99\';this.style.background=\''+P2+'\'" '+
+        'onmouseout="this.style.borderColor=\''+(d?lv.col+'66':BORDER)+'\';this.style.background=\''+PANEL+'\'">'+
+        (d?'<div style="position:absolute;top:10px;right:10px;background:'+lv.bg+';color:'+lv.col+';font-size:10px;font-weight:700;padding:2px 7px;border-radius:99px">✓ done</div>':'')+
+        '<div style="font-size:26px;margin-bottom:8px">'+l.icon+'</div>'+
+        '<div style="font-size:13px;font-weight:600;margin-bottom:4px">'+l.title+'</div>'+
+        '<div style="font-size:11px;color:'+TIP+';line-height:1.6;margin-bottom:8px">'+l.desc.slice(0,60)+'…</div>'+
+        '<div style="font-size:11px;color:'+lv.col+';font-weight:700">+'+l.xp+' XP</div></div>';
+    });
+    grid+='</div></div>';
+  });
+
+  var how='<div style="background:'+PANEL+';border:1px solid '+BORDER+';border-radius:12px;padding:16px;margin-top:8px">'+
+    '<div style="font-size:12px;font-weight:700;color:'+GRN+';margin-bottom:10px">💡 HOW TO USE THIS ACADEMY</div>'+
+    '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px">';
+  [['📖 Read Lessons','Understand concepts with annotated code examples'],['↗ Click Try it','Load any example into the terminal instantly'],['💻 Practice','Type commands and see real bash output'],['🎯 Challenges','Answer questions to earn XP and track progress'],['🤖 AI Tutor','Get instant help — paste your Anthropic API key to enable']].forEach(function(h){
+    how+='<div style="background:'+P2+';border-radius:8px;padding:10px"><div style="font-size:12px;font-weight:600;margin-bottom:3px">'+h[0]+'</div><div style="font-size:11px;color:'+TIP+'">'+h[1]+'</div></div>';
+  });
+  how+='</div></div>';
+  return stats+grid+how;
+}
+
+function renderLesson(){
+  var l=LESSONS[S.lid],lv=LV[l.level],d=S.done[l.id],fb=S.cff[l.id];
+
+  var miniNav='<div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:16px">';
+  LESSONS.forEach(function(ll){
+    var active=ll.id===S.lid,ld=S.done[ll.id];
+    miniNav+='<button onclick="goLesson('+ll.id+')" style="background:'+(active?LV[ll.level].col:PANEL)+';color:'+(active?'#fff':ld?LV[ll.level].col:DIM)+';border:1px solid '+(active?LV[ll.level].col:ld?LV[ll.level].col+'44':BORDER)+';border-radius:7px;padding:4px 10px;font-size:11px;cursor:pointer;font-family:'+MONO+'">'+(ld?'✓':ll.id+1)+' '+ll.icon+'</button>';
+  });
+  miniNav+='</div>';
+
+  var head='<div style="display:flex;align-items:center;gap:14px;margin-bottom:16px">'+
+    '<span style="font-size:36px">'+l.icon+'</span>'+
+    '<div><h2 style="font-size:21px;font-weight:700;margin:0">'+l.title+'</h2>'+
+    '<div style="display:flex;gap:8px;align-items:center;margin-top:5px">'+
+      '<span style="background:'+lv.bg+';color:'+lv.col+';border:1px solid '+lv.bdr+';font-size:11px;font-weight:700;padding:2px 10px;border-radius:99px">'+l.level+'</span>'+
+      '<span style="font-size:12px;color:'+DIM+'">+'+l.xp+' XP</span>'+
+      (d?'<span style="font-size:12px;color:'+lv.col+';font-weight:700">✓ completed</span>':'')+
+    '</div></div></div>';
+
+  var desc2='<div style="background:'+PANEL+';border:1px solid '+BORDER+';border-radius:12px;padding:14px 16px;margin-bottom:16px;font-size:13px;line-height:1.85;color:#7a9bbf">'+l.desc+'</div>';
+
+  var exBox='<div style="background:'+BG+';border:1px solid '+BORDER+';border-radius:12px;overflow:hidden;margin-bottom:16px">'+
+    '<div style="background:'+P2+';padding:9px 14px;display:flex;align-items:center;gap:8px;border-bottom:1px solid '+BORDER+'">'+trafficLights()+'<span style="font-size:11px;color:'+TIP+';font-family:'+MONO+';margin-left:6px">examples — click Try ↗ to load into terminal</span></div>';
+  l.ex.forEach(function(ex,i){
+    var idx=CBUF.length;CBUF.push(ex.c);
+    exBox+='<div style="display:flex;align-items:flex-start;gap:12px;padding:12px 16px;'+(i<l.ex.length-1?'border-bottom:1px solid '+BORDER+'44':'')+'">'+
+      '<div style="flex:1">'+
+        '<div style="font-size:11px;color:'+TIP+';margin-bottom:5px">'+esc(ex.l)+'</div>'+
+        '<div style="font-family:'+MONO+';font-size:13px;color:'+GRN+';background:#040608;padding:7px 12px;border-radius:7px;margin-bottom:5px;border:1px solid '+BORDER+'88">'+esc(ex.c)+'</div>'+
+        '<div style="font-size:11px;color:'+DIM+'">💡 '+esc(ex.n)+'</div>'+
+      '</div>'+
+      '<button onclick="tryCmd('+idx+')" style="background:rgba(34,197,94,.12);color:'+GRN+';border:1px solid rgba(34,197,94,.25);border-radius:8px;padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer;flex-shrink:0;margin-top:4px">Try ↗</button>'+
+    '</div>';
+  });
+  exBox+='</div>';
+
+  var fbHtml='';
+  if(fb){
+    var ok2=fb==='new'||fb==='repeat';
+    var fbBg=ok2?'rgba(34,197,94,.1)':fb==='hint'?'rgba(245,158,11,.1)':'rgba(239,68,68,.1)';
+    var fbBdr=ok2?'rgba(34,197,94,.3)':fb==='hint'?'rgba(245,158,11,.3)':'rgba(239,68,68,.3)';
+    var fbCol=ok2?GRN:fb==='hint'?'#f59e0b':'#f87171';
+    var fbMsg=fb==='new'?'✓ Correct! +'+l.xp+' XP earned! Keep going!':fb==='repeat'?'✓ Correct! (XP already earned for this one)':fb==='hint'?'💡 Hint: '+l.ch.h:'✗ Not quite — re-read the examples or click Hint!';
+    fbHtml='<div style="margin-top:12px;padding:11px 14px;border-radius:8px;font-size:13px;line-height:1.65;background:'+fbBg+';border:1px solid '+fbBdr+';color:'+fbCol+'">'+esc(fbMsg)+'</div>';
+  }
+
+  var challenge='<div style="background:'+PANEL+';border:1px solid '+BORDER+';border-radius:12px;overflow:hidden;margin-bottom:16px">'+
+    '<div style="background:'+P2+';padding:12px 16px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid '+BORDER+'">'+
+      '<span style="font-size:14px;font-weight:700">🎯 Challenge</span>'+
+      '<span style="font-size:12px;color:'+(d?lv.col:DIM)+';font-weight:'+(d?'700':'400')+'">'+(d?'✓ +'+l.xp+' XP earned':'+'+l.xp+' XP')+'</span>'+
+    '</div><div style="padding:16px">'+
+      '<div style="font-size:14px;line-height:1.75;margin-bottom:14px">'+esc(l.ch.q)+'</div>'+
+      '<textarea id="cfa'+l.id+'" rows="2" placeholder="Type your answer here…" oninput="updateCfa('+l.id+',this.value)" style="width:100%;background:#040608;border:1px solid '+BORDER+';border-radius:8px;padding:10px 12px;font-family:'+MONO+';font-size:13px;color:'+TEXT+';resize:vertical;box-sizing:border-box"></textarea>'+
+      '<div style="display:flex;gap:10px;margin-top:10px">'+
+        '<button onclick="checkC('+l.id+')" style="background:'+GRN+';color:#fff;border:none;border-radius:8px;padding:9px 22px;font-size:13px;font-weight:700;cursor:pointer">Submit Answer</button>'+
+        '<button onclick="hintC('+l.id+')" style="background:transparent;border:1px solid '+BORDER+';border-radius:8px;padding:9px 16px;font-size:13px;color:'+DIM+';cursor:pointer">💡 Hint</button>'+
+      '</div>'+fbHtml+'</div></div>';
+
+  var nav2='<div style="display:flex;gap:10px">';
+  if(S.lid>0)nav2+='<button onclick="goLesson('+(S.lid-1)+')" style="background:'+PANEL+';border:1px solid '+BORDER+';border-radius:8px;padding:9px 18px;font-size:13px;color:'+DIM+';cursor:pointer">← Previous</button>';
+  if(S.lid<LESSONS.length-1)nav2+='<button onclick="goLesson('+(S.lid+1)+')" style="background:'+GRN+';color:#fff;border:none;border-radius:8px;padding:9px 22px;font-size:13px;font-weight:700;cursor:pointer">Next Lesson →</button>';
+  else nav2+='<span style="color:'+GRN+';font-weight:700;font-size:14px;align-self:center">🎉 All lessons done — you are a shell master!</span>';
+  nav2+='</div>';
+
+  return miniNav+head+desc2+exBox+challenge+nav2;
+}
+
+function renderTerminal(){
+  var cwd=S.tCwd==='/home/student'?'~':S.tCwd;
+  var lines=S.tLines.map(function(line){
+    var col=line.k==='cmd'?GRN:line.k==='hdr'?'#a78bfa':line.k==='tip'?TIP:line.k==='err'?'#f87171':TEXT;
+    return '<div style="white-space:pre-wrap;line-height:1.8;color:'+col+'">'+esc(line.v)+'</div>';
+  }).join('');
+
+  var term='<div style="background:#040608;border:1px solid '+BORDER+';border-radius:14px;overflow:hidden;margin-bottom:20px">'+
+    '<div style="background:'+P2+';padding:10px 14px;display:flex;align-items:center;gap:8px;border-bottom:1px solid '+BORDER+'">'+
+      trafficLights()+
+      '<span style="font-family:'+MONO+';font-size:11px;color:'+TIP+';margin-left:6px">bash — student@shell-academy:'+cwd+'</span>'+
+      '<button onclick="resetTerm()" style="margin-left:auto;background:none;border:1px solid '+BORDER+';border-radius:5px;color:'+DIM+';font-size:10px;padding:2px 8px;cursor:pointer">reset</button>'+
+    '</div>'+
+    '<div id="tOut" style="padding:12px 16px;min-height:300px;max-height:420px;overflow-y:auto;font-family:'+MONO+';font-size:13px;line-height:1.7">'+lines+'</div>'+
+    '<div style="display:flex;align-items:center;padding:10px 16px;border-top:1px solid '+BORDER+';background:'+P2+';gap:8px">'+
+      '<span style="font-family:'+MONO+';font-size:13px;color:'+GRN+';flex-shrink:0;white-space:nowrap">'+cwd+' $</span>'+
+      '<input id="ti" onkeydown="termKey(event)" oninput="S.tIn=this.value" placeholder="type a command and press Enter…" style="flex:1;background:none;border:none;font-family:'+MONO+';font-size:13px;color:'+TEXT+'"/>'+
+      '<button onclick="execBtn()" style="background:'+GRN+';color:#fff;border:none;border-radius:6px;padding:5px 14px;font-size:12px;font-weight:700;cursor:pointer">Run ↵</button>'+
+    '</div></div>';
+
+  var QUICK=['echo "Hello, World!"','pwd','ls','whoami','cat data.txt','grep Alice data.txt','grep -i bob data.txt','sort numbers.txt','wc data.txt','chmod +x hello.sh; ./hello.sh','for i in {1..3}; do echo $i; done','./greet.sh Alice','./deploy.sh','cat data.txt | grep Bob'];
+  var qBtns='<div style="margin-bottom:20px"><div style="font-size:11px;color:'+DIM+';font-weight:700;text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px">Quick commands — click to load</div><div style="display:flex;flex-wrap:wrap;gap:6px">';
+  QUICK.forEach(function(cmd){var idx=CBUF.length;CBUF.push(cmd);qBtns+='<button onclick="loadCmd('+idx+')" style="background:'+PANEL+';border:1px solid '+BORDER+';border-radius:8px;padding:5px 10px;font-size:11px;color:'+TIP+';cursor:pointer;font-family:'+MONO+'">'+esc(cmd)+'</button>';});
+  qBtns+='</div></div>';
+
+  var EX=[
+    {n:1,t:'Print "Hello World"',                    c:'echo "Hello World"'},
+    {n:2,t:'Set city=Tokyo and print it',             c:'city="Tokyo"; echo "City: $city"'},
+    {n:3,t:'Create a folder called workspace',        c:'mkdir workspace'},
+    {n:4,t:'View contents of data.txt',               c:'cat data.txt'},
+    {n:5,t:'Find lines with Bob in data.txt',         c:'grep Bob data.txt'},
+    {n:6,t:'Sort numbers.txt numerically',            c:'sort numbers.txt'},
+    {n:7,t:'Count lines/words/chars in data.txt',     c:'wc data.txt'},
+    {n:8,t:'Make hello.sh executable and run it',     c:'chmod +x hello.sh; ./hello.sh'},
+    {n:9,t:'Loop: print 1 to 5',                     c:'for i in {1..5}; do echo $i; done'},
+    {n:10,t:'Loop over fruits and print each',        c:'for f in apple banana cherry; do echo $f; done'},
+    {n:11,t:'Test: is 10 greater than 5?',            c:"[[ 10 -gt 5 ]] && echo 'yes 10>5' || echo 'no'"},
+    {n:12,t:'Greet yourself by name',                 c:'./greet.sh YourName'},
+    {n:13,t:'Run the deploy script',                  c:'./deploy.sh'},
+    {n:14,t:'Pipe: filter data.txt to Carol only',    c:'cat data.txt | grep Carol'},
+  ];
+  var exHtml='<div><div style="font-size:11px;color:'+DIM+';font-weight:700;text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px">Hands-on exercises — 14 challenges</div><div style="display:grid;gap:7px">';
+  EX.forEach(function(ex){
+    var idx=CBUF.length;CBUF.push(ex.c);
+    exHtml+='<div style="background:'+PANEL+';border:1px solid '+BORDER+';border-radius:10px;padding:11px 14px;display:flex;justify-content:space-between;align-items:center;gap:12px">'+
+      '<div style="display:flex;align-items:center;gap:10px">'+
+        '<span style="color:'+GRN+';font-weight:700;font-size:12px;font-family:'+MONO+';flex-shrink:0;width:22px">'+ex.n+'.</span>'+
+        '<span style="font-size:13px;color:#7a9bbf">'+esc(ex.t)+'</span>'+
+      '</div>'+
+      '<button onclick="loadCmd('+idx+')" style="background:rgba(34,197,94,.1);color:'+GRN+';border:1px solid rgba(34,197,94,.2);border-radius:7px;padding:5px 14px;font-size:11px;font-weight:700;cursor:pointer;flex-shrink:0">Load</button>'+
+    '</div>';
+  });
+  exHtml+='</div></div>';
+  return term+qBtns+exHtml;
+}
+
+function renderTutor(){
+  var msgs=S.aiMsgs.map(function(m){
+    var isBot=m.r==='bot';
+    var txt=m.t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+      .replace(/`([^`\n]+)`/g,'<code style="background:rgba(0,0,0,.5);padding:1px 6px;border-radius:4px;font-family:'+MONO+';font-size:12px;color:#93c5fd">$1</code>');
+    return '<div style="display:flex;justify-content:'+(isBot?'flex-start':'flex-end')+';margin-bottom:12px">'+
+      '<div style="max-width:84%;padding:10px 14px;border-radius:12px;font-size:13px;line-height:1.8;white-space:pre-wrap;background:'+(isBot?P2:'#08301a')+';color:'+(isBot?TEXT:'#6ee7b7')+';border:'+(isBot?'1px solid '+BORDER:'none')+';border-bottom-'+(isBot?'left':'right')+'-radius:3px">'+txt+'</div></div>';
+  }).join('');
+  var loading=S.aiLoad?'<div style="display:flex;margin-bottom:12px"><div style="background:'+P2+';border:1px solid '+BORDER+';padding:12px 16px;border-radius:12px;border-bottom-left-radius:3px"><span class="dot"></span><span class="dot"></span><span class="dot"></span></div></div>':'';
+
+  var QQ=['Explain $@ vs $* with examples','What does set -euo pipefail do?','How do I loop over lines in a file?','Difference between [ ] and [[ ]]?','What is a heredoc (<<EOF)?','How do I debug a bash script?','How do I run commands in parallel?','Best way to handle errors in bash?'];
+  var qBtns=QQ.map(function(q){return '<button onclick="setAiQ(\''+q.replace(/'/g,"\\'")+'\')" style="background:'+PANEL+';border:1px solid '+BORDER+';border-radius:99px;padding:5px 13px;font-size:11px;color:'+TIP+';cursor:pointer">'+q+'</button>';}).join('');
+
+  return '<div style="background:'+PANEL+';border:1px solid '+BORDER+';border-radius:14px;overflow:hidden;margin-bottom:14px">'+
+    '<div style="background:'+P2+';padding:12px 16px;border-bottom:1px solid '+BORDER+';display:flex;align-items:center;gap:10px">'+
+      '<div style="width:32px;height:32px;background:'+GRN+';border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:#fff;flex-shrink:0">AI</div>'+
+      '<div><div style="font-size:14px;font-weight:700">Shell Scripting Tutor</div><div style="font-size:11px;color:'+DIM+'">powered by Claude · '+Object.keys(S.done).length+'/'+LESSONS.length+' lessons done</div></div>'+
+    '</div>'+
+    '<div style="padding:12px 16px;background:'+BG+';border-bottom:1px solid '+BORDER+'">'+
+      '<div style="font-size:11px;color:'+DIM+';margin-bottom:6px">Anthropic API Key — get one free at <a href="https://console.anthropic.com" target="_blank" style="color:'+GRN+'">console.anthropic.com</a></div>'+
+      '<input id="api-key-inp" type="password" placeholder="sk-ant-api03-…" oninput="updateAiKey(this.value)" style="width:100%;background:'+P2+';border:1px solid '+BORDER+';border-radius:7px;padding:8px 12px;font-size:13px;font-family:'+MONO+'"/>'+
+    '</div>'+
+    '<div id="aiMsgs" style="padding:16px;max-height:360px;overflow-y:auto">'+msgs+loading+'</div>'+
+  '</div>'+
+  '<div style="margin-bottom:12px"><div style="font-size:11px;color:'+DIM+';font-weight:700;text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px">Quick questions</div><div style="display:flex;flex-wrap:wrap;gap:7px">'+qBtns+'</div></div>'+
+  '<div style="display:flex;gap:10px">'+
+    '<input id="ai-inp" placeholder="Ask anything about shell scripting, bash, Azure CLI…" onkeydown="if(event.key===\'Enter\')sendAI()" style="flex:1;background:'+PANEL+';border:1px solid '+BORDER+';border-radius:10px;padding:11px 16px;font-size:13px"/>'+
+    '<button onclick="sendAI()" '+(S.aiLoad?'disabled':'')+' style="background:'+GRN+';color:#fff;border:none;border-radius:10px;padding:11px 24px;font-size:13px;font-weight:700;cursor:pointer;opacity:'+(S.aiLoad?.6:1)+'">Ask →</button>'+
+  '</div>';
+}
+
+/* ═══════════════════════════════════════════════════════════
+   INIT
+═══════════════════════════════════════════════════════════ */
+render();
+</script>
+</body>
+</html>
